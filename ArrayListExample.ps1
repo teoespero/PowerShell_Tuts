@@ -1,44 +1,95 @@
 ﻿<#---------------------------------------------------------------
-    Taxi Plate Collection Script
+    Taxi Plate Collection with Input Validation
     Teo Espero, MCWD IT Administrator
     05-01-2026
 
     Description:
-    This script collects taxi plate numbers from the user and stores
-    them in a dynamic list (ArrayList). It uses a loop to allow
-    repeated input and displays the collected data at the end.
+    This script collects taxi plate numbers from the user using a loop.
+    It validates user input for yes/no responses, prevents duplicates,
+    and exits cleanly if invalid input is entered twice.
 
     Key Concepts:
-    - ArrayList for dynamic storage
-    - Read-Host for user input
+    - User input handling with Read-Host
+    - Input validation without ValidateSet (prevents script crash)
     - while loop for repeated execution
-    - ValidateSet for input validation
-    - Case-insensitive comparison using -ieq
+    - HashSet for automatic uniqueness
+    - String normalization (Trim + ToUpper)
 ---------------------------------------------------------------#>
 
-Clear-Host   # Clears the console for a clean start
+Clear-Host   # Clears the console screen
 
-# Create ArrayList (dynamic list that supports .Add())
-$Taxi_List = New-Object System.Collections.ArrayList
+# Create a HashSet to store unique taxi plates
+$Taxi_List = [System.Collections.Generic.HashSet[string]]::new()
 
-# Initialize user response to "Y" so the loop runs at least once
-[char] [ValidateSet("y", "Y", "n", "N")] $User_Response = "Y"
+<#---------------------------------------------------------------
+    Function: Get-YesNo
+    Purpose:
+    Prompts the user for a Y/N response.
+    - If invalid input is entered, user gets one retry.
+    - If still invalid, function returns $null.
+---------------------------------------------------------------#>
+function Get-YesNo {
 
-# Loop continues while user enters "Y" or "y"
-while ($User_Response -ieq "y") {
+    # First attempt
+    $response = Read-Host "Want to enter taxi plates? (y/n)"
 
-    # Prompt user for taxi plate input
-    $Taxi = Read-Host "Enter taxi plates"
+    # Check if input is invalid
+    if ($response -notin @("y","Y","n","N")) {
+        Write-Host "Invalid input. Please enter Y or N."
 
-    # Add input to ArrayList
-    # Out-Null suppresses the index output from .Add()
-    $Taxi_List.Add($Taxi) | Out-Null
+        # Second attempt
+        $response = Read-Host "Try again (y/n)"
 
-    # Ask user if they want to continue
-    # ValidateSet restricts input to allowed values only
-    [char] [ValidateSet("y", "Y", "n", "N")] $User_Response = Read-Host "Want to enter more plates (y/n)?"
+        # If still invalid, return null
+        if ($response -notin @("y","Y","n","N")) {
+            Write-Host "Invalid again. Exiting."
+            return $null
+        }
+    }
+
+    return $response
 }
 
-# Display collected results
+# Get initial user response
+$User_Response = Get-YesNo
+
+# Exit script if user fails validation twice
+if (-not $User_Response) {
+    return
+}
+
+<#---------------------------------------------------------------
+    Main Loop:
+    Continues collecting taxi plates while user enters "Y"
+---------------------------------------------------------------#>
+while ($User_Response -ieq "y") {
+
+    # Prompt for taxi plate
+    $Taxi = Read-Host "Enter taxi plates"
+
+    # Validate non-empty input
+    if ([string]::IsNullOrWhiteSpace($Taxi)) {
+        Write-Host "Invalid input. Skipping..."
+        continue
+    }
+
+    # Normalize input (remove spaces, enforce uppercase)
+    $Taxi = $Taxi.Trim().ToUpper()
+
+    # Attempt to add to HashSet (prevents duplicates)
+    if (-not $Taxi_List.Add($Taxi)) {
+        Write-Host "Duplicate entry. Plate already exists."
+    }
+
+    # Ask user if they want to continue
+    $User_Response = Get-YesNo
+
+    # Exit loop if validation fails
+    if (-not $User_Response) {
+        break
+    }
+}
+
+# Display collected taxi plates
 Write-Host "`nTaxi Plates Entered:"
 $Taxi_List
